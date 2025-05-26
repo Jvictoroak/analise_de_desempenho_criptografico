@@ -10,28 +10,24 @@ import os
 from openpyxl import Workbook
 from openpyxl.styles import Font
 
-# Texto a ser cifrado
-texto_original = "RSA eh um algoritmo que leva o nome de 3 professores do MIT: Rivest, Shamir e Adleman"
+# Increased text size for measurable operations
+texto_original = "RSA eh um algoritmo que leva o nome de 3 professores do MIT: Rivest, Shamir e Adleman " * 100
 texto_bytes = texto_original.encode('utf-8')
 
-# Função para medir tempo de execução
 def medir_tempo(funcao, *args):
     tempos = []
     for _ in range(3):
-        inicio = time.time()
+        inicio = time.perf_counter()  # High precision timer
         funcao(*args)
-        fim = time.time()
+        fim = time.perf_counter()
         tempos.append(fim - inicio)
     return tempos
 
-# Função para dividir o texto em blocos adequados para RSA
 def dividir_em_blocos(dados, tamanho_bloco):
     return [dados[i:i+tamanho_bloco] for i in range(0, len(dados), tamanho_bloco)]
 
-# RSA
 def testar_rsa(tamanho_chave):
     def funcao():
-        # Gerar chaves
         private_key = rsa.generate_private_key(
             public_exponent=65537,
             key_size=tamanho_chave,
@@ -65,14 +61,16 @@ def testar_rsa(tamanho_chave):
             )
     return medir_tempo(funcao)
 
-# AES
 def testar_aes(tamanho_chave):
     def funcao():
         key = os.urandom(tamanho_chave // 8)
         iv = os.urandom(16)
         
+        # Use larger data payload for measurable results
+        dados = texto_bytes * 10  
+        
         padder = symmetric_padding.PKCS7(128).padder()
-        padded_data = padder.update(texto_bytes) + padder.finalize()
+        padded_data = padder.update(dados) + padder.finalize()
         
         cipher = Cipher(
             algorithms.AES(key),
@@ -89,7 +87,6 @@ def testar_aes(tamanho_chave):
     
     return medir_tempo(funcao)
 
-# Executar testes
 print("Iniciando testes...")
 resultados = {
     "RSA 1024": testar_rsa(1024),
@@ -100,51 +97,41 @@ resultados = {
     "AES 256": testar_aes(256),
 }
 
-# Criar arquivo Excel
+# Create Excel workbook
 wb = Workbook()
 ws = wb.active
-ws.title = "Resultados Criptografia"
+ws.title = "Resultados Criptográficos"
 
-# Cabeçalhos
-cabecalhos = ['Algoritmo', 'Execução 1 (s)', 'Execução 2 (s)', 'Execução 3 (s)', 'Média (s)']
-for col, cabecalho in enumerate(cabecalhos, 1):
-    ws.cell(row=1, column=col, value=cabecalho).font = Font(bold=True)
+# Headers
+headers = ['Algoritmo', 'Execução 1 (s)', 'Execução 2 (s)', 'Execução 3 (s)', 'Média (s)']
+for col_num, header in enumerate(headers, 1):
+    ws.cell(row=1, column=col_num, value=header).font = Font(bold=True)
 
-# Dados
-for row, (algoritmo, tempos) in enumerate(resultados.items(), 2):
+# Data
+for row_num, (algoritmo, tempos) in enumerate(resultados.items(), 2):
     media = sum(tempos) / len(tempos)
-    ws.cell(row=row, column=1, value=algoritmo)
-    for col, tempo in enumerate(tempos, 2):
-        ws.cell(row=row, column=col, value=tempo)
-    ws.cell(row=row, column=5, value=media)
+    ws.cell(row=row_num, column=1, value=algoritmo)
+    for col_num, tempo in enumerate(tempos, 2):
+        ws.cell(row=row_num, column=col_num, value=tempo)
+    ws.cell(row=row_num, column=5, value=media)
 
-# Formatar números
+# Format numbers
 for row in ws.iter_rows(min_row=2, max_col=5, max_row=len(resultados)+1):
-    for cell in row[1:]:  # A partir da segunda coluna
+    for cell in row[1:]:
         cell.number_format = '0.000000'
 
-# Ajustar largura das colunas
+# Adjust column widths
 for col in ws.columns:
-    max_length = 0
-    column = col[0].column_letter
-    for cell in col:
-        try:
-            if len(str(cell.value)) > max_length:
-                max_length = len(str(cell.value))
-        except:
-            pass
+    max_length = max(len(str(cell.value)) for cell in col)
     adjusted_width = (max_length + 2) * 1.2
-    ws.column_dimensions[column].width = adjusted_width
+    ws.column_dimensions[col[0].column_letter].width = adjusted_width
 
-# Salvar arquivo
-nome_arquivo = "resultados_criptografia.xlsx"
-wb.save(nome_arquivo)
-print(f"\nPlanilha Excel '{nome_arquivo}' gerada com sucesso.")
+# Save file
+excel_filename = "resultados_criptograficos.xlsx"
+wb.save(excel_filename)
 
-# Exibir resultados no console
-print("\nResultados dos tempos de execução (segundos):")
+print("\nResultados dos testes (segundos):")
 for algoritmo, tempos in resultados.items():
-    media = sum(tempos) / len(tempos)
-    print(f"{algoritmo}:")
-    print(f"  Execuções: {[f'{t:.6f}' for t in tempos]}")
-    print(f"  Média: {media:.6f}s")
+    print(f"{algoritmo}: {[f'{t:.6f}' for t in tempos]} (Média: {sum(tempos)/len(tempos):.6f}s)")
+
+print(f"\nPlanilha '{excel_filename}' gerada com sucesso!")
